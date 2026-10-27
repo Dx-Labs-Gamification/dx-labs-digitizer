@@ -604,6 +604,8 @@
   /* ---- Game 2: document check ---- */
   #screen-question { width: min(940px, 96vw); }
   .doc-prompt { font-size: clamp(13px,1.8vw,15px); font-weight: 700; color: var(--ink-dark); margin: 0 auto 16px; max-width: 640px; line-height: 1.55; }
+  .situation { text-align: left; margin: 0 0 14px; padding: 12px 14px; background: #fff7dc; border: 2px solid #c9a43a; font-size: 13px; line-height: 1.55; color: var(--ink-dark); }
+  .situation b { display: block; font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase; color: #8a6418; margin-bottom: 4px; }
   .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; text-align: left; }
   @media (max-width: 700px) { .doc-grid { grid-template-columns: 1fr; } }
   .doc-box { border: 2px solid var(--ink-dark); background: #fbf8ee; padding: 14px; min-height: 200px; }
@@ -621,6 +623,7 @@
   .smudge { background: repeating-linear-gradient(45deg,#d9cfae 0 4px,#c9bd94 4px 8px); color: transparent !important; user-select: none; padding: 0 22px; }
   .conf { font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 3px 8px; border: 2px solid var(--ink-dark); text-transform: uppercase; }
   .conf.high { background: var(--good-bg); color: var(--good); border-color: var(--good); }
+  .conf.low { background: #f6ecd2; color: #8a6418; border-color: #b9952f; }
   .conf.normal { background: #eef1ef; color: var(--ink-2, #3d5a4e); }
   .acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
   @media (max-width: 700px) { .acts { grid-template-columns: 1fr; } }
@@ -704,7 +707,7 @@
     <div class="card-outer">
       <div class="card-inner">
         <div class="card-tag">Session</div>
-        <div class="card-heading">Five documents.<br>You are the human in the loop.</div>
+        <div class="card-heading">Eight documents.<br>You are the human in the loop.</div>
         <button class="pixel-btn blink" id="btn-start">▶ Press Start</button>
       </div>
     </div>
@@ -737,9 +740,9 @@
         <div class="card-tag">Rules</div>
         <div class="subtext" style="margin-bottom:12px;">For each document, compare the <b>source document</b> with the <b>AI's reading</b>, then choose one:</div>
         <div class="guide-row"><div class="guide-tag">✔ LOOKS RIGHT</div><div class="guide-desc">Every detail the AI typed matches the document.</div></div>
-        <div class="guide-row"><div class="guide-tag">✏ HAS A MISTAKE</div><div class="guide-desc">The AI typed a detail wrong, and you can see the right one in the document.</div></div>
-        <div class="guide-row"><div class="guide-tag">🚩 CAN'T BE CHECKED</div><div class="guide-desc">Part of the document is blurry or missing, so the AI had to guess. A person needs to check it.</div></div>
-        <div class="subtext" style="margin-top:14px;">Tip: the AI can sound sure and still be wrong. Always check against the document.<br><br>The leaderboard ranks players by number of correct answers.</div>
+        <div class="guide-row"><div class="guide-tag">✏ HAS A MISTAKE</div><div class="guide-desc">The AI typed a detail wrong, and the document (plus the situation) shows what it should be.</div></div>
+        <div class="guide-row"><div class="guide-tag">🚩 CAN'T BE CHECKED</div><div class="guide-desc">Something is unclear, missing or not confirmed, so the right value can't be known yet. A person needs to check it.</div></div>
+        <div class="subtext" style="margin-top:14px;">Tip: the AI can sound sure and still be wrong. Some documents come with a <b>Situation</b> box: read it first, because it can change the right answer.<br><br>The leaderboard ranks players by number of correct answers.</div>
         <button class="pixel-btn" id="btn-ready">▶ Continue</button>
       </div>
     </div>
@@ -752,7 +755,7 @@
     <div class="card-outer">
       <div class="card-inner">
         <div class="card-tag">Go</div>
-        <div class="subtext" style="margin-bottom:22px;">Five documents. One chance.<br>Check every field before you decide.</div>
+        <div class="subtext" style="margin-bottom:22px;">Eight documents. One chance.<br>Check every field before you decide.</div>
         <button class="pixel-btn blink" id="btn-begin">▶ Start Checking</button>
       </div>
     </div>
@@ -762,8 +765,9 @@
   <div class="panel hidden" id="screen-question">
     <div class="card-outer">
       <div class="card-inner">
-        <div class="card-tag" id="q-tag">Doc 1 / 5</div>
+        <div class="card-tag" id="q-tag">Doc 1 / 8</div>
         <div class="doc-prompt">Compare the AI's reading with the source document. What should you do?</div>
+        <div class="situation hidden" id="situation"></div>
         <div class="doc-grid">
           <div class="doc-box src" id="doc-src"></div>
           <div class="doc-box" id="doc-ai"></div>
@@ -771,7 +775,7 @@
         <div class="acts" id="acts">
           <button class="act" data-act="approve"><b>✔ LOOKS RIGHT</b><span>Every detail matches the document.</span></button>
           <button class="act" data-act="fix"><b>✏ HAS A MISTAKE</b><span>A detail is wrong, and the document shows the right one.</span></button>
-          <button class="act" data-act="flag"><b>🚩 CAN'T BE CHECKED</b><span>The document is blurry or missing info, so the AI guessed.</span></button>
+          <button class="act" data-act="flag"><b>🚩 CAN'T BE CHECKED</b><span>Something is unclear or missing, so a person must confirm it first.</span></button>
         </div>
         <div class="explain hidden" id="explain"></div>
         <button class="pixel-btn hidden" id="btn-next">Next Document ▶</button>
@@ -862,35 +866,61 @@
 // answer: 'approve' | 'fix' | 'flag'.  For 'fix', wrongField + truth show the correction.
 const FIELDS = [['officer', 'Officer'], ['dates', 'Dates'], ['days', 'Days'], ['amount', 'Amount'], ['purpose', 'Purpose']];
 const questions = [
-  { type: 'Email request', title: 'Re: Reimbursement for training', conf: 'normal',
-    doc: [['Officer', 'Andrea Salcedo'], ['Travel', 'June 3–4, 2026'], ['Days', '2'], ['Amount', 'PHP 3,000.00'], ['Purpose', 'DX training, UP Cebu']],
-    ai: { officer: 'Andrea Salcedo', dates: 'Jun 3–4, 2026', days: '2', amount: '₱3,000.00', purpose: 'DX training, UP Cebu' },
+  { type: 'Supplier receipt', title: 'Official Receipt #7731', conf: 'high',
+    situation: 'This supplier always prints dates as MM/DD/YY (month first). It says so at the bottom of every receipt.',
+    doc: [['Payee', 'Andrea Salcedo'], ['Date', '12/01/26'], ['Days', '1'], ['Amount', 'PHP 1,500.00'], ['Purpose', 'Printing of training kits'], ['Footer', 'Dates: MM/DD/YY']],
+    ai: { officer: 'Andrea Salcedo', dates: 'Jan 12, 2026', days: '1', amount: '₱1,500.00', purpose: 'Printing of training kits' },
+    answer: 'fix', wrongField: 'dates', truth: 'Dec 1, 2026',
+    explain: 'With month first, 12/01/26 is December 1, 2026. The AI read it day first and got January 12. The footer tells you the right order, so it has a mistake.' },
+
+  { type: 'Travel form', title: 'Travel Order 26-171', conf: 'normal',
+    situation: 'Count travel days including both the departure day and the return day.',
+    doc: [['Name', 'Daniel Tan'], ['Depart', 'Sep 30, 2026'], ['Return', 'Oct 2, 2026'], ['No. of days', '3'], ['Amount', 'PHP 4,500.00'], ['Purpose', 'Regional audit']],
+    ai: { officer: 'Daniel Tan', dates: 'Sep 30–Oct 2, 2026', days: '3', amount: '₱4,500.00', purpose: 'Regional audit' },
     answer: 'approve',
-    explain: 'Every field the AI typed matches the email. Nothing is wrong, so it looks right.' },
+    explain: 'The trip crosses from September into October, which makes it look off, but Sep 30, Oct 1 and Oct 2 are 3 days. Every detail matches, so it looks right.' },
 
-  { type: 'Scanned receipt', title: 'Official Receipt #4471', conf: 'normal',
-    doc: [['Payee', 'Marco Villanueva'], ['Date', '07 Jun 2026'], ['Days', '3'], ['Rate', '1,500 per day'], ['TOTAL', 'PHP 4,500.00']],
-    ai: { officer: 'Marco Villanueva', dates: 'Jun 7, 2026', days: '3', amount: '₱450.00', purpose: 'Field visit' },
-    answer: 'fix', wrongField: 'amount', truth: '₱4,500.00',
-    explain: 'The receipt total is ₱4,500.00, but the AI typed ₱450.00. It dropped a zero. The right amount is on the receipt, so it has a mistake.' },
+  { type: 'Liquidation report', title: 'Liquidation Report 26-088', conf: 'high',
+    situation: 'Reimburse what was actually spent, never the approved budget.',
+    doc: [['Officer', 'Marco Villanueva'], ['Trip', 'Oct 6–7, 2026'], ['Days', '2'], ['Approved budget', 'PHP 6,000.00'], ['Actual spent', 'PHP 4,350.00'], ['Purpose', 'Data validation']],
+    ai: { officer: 'Marco Villanueva', dates: 'Oct 6–7, 2026', days: '2', amount: '₱6,000.00', purpose: 'Data validation' },
+    answer: 'fix', wrongField: 'amount', truth: '₱4,350.00',
+    explain: 'The AI picked the bigger, more prominent number, which is the approved budget. The rule says to use the actual spent, ₱4,350.00, which is on the report.' },
 
-  { type: 'Handwritten receipt', title: 'Acknowledgement receipt', conf: 'high',
-    doc: [['Payee', 'D. Tan'], ['For', 'Meals and fare'], ['Amount', 'P▓,▓▓0.00 (smudged)'], ['Date', 'Jul ▓, 2026 (smudged)']],
-    ai: { officer: 'Daniel Tan', dates: 'Jul 5, 2026', days: '2', amount: '₱2,000.00', purpose: 'Meals and fare' },
+  { type: 'Foreign hotel receipt', title: 'Hotel Receipt · Tokyo', conf: 'high',
+    situation: 'All amounts must be entered in pesos. Convert using the currency and rate printed on the receipt.',
+    doc: [['Guest', 'Bianca Reyes'], ['Stay', 'Oct 12–13, 2026'], ['Nights', '2'], ['TOTAL', '2,500 (no currency shown)'], ['Exchange rate', 'Not printed'], ['Purpose', 'Conference']],
+    ai: { officer: 'Bianca Reyes', dates: 'Oct 12–13, 2026', days: '2', amount: '₱2,500.00', purpose: 'Conference' },
     answer: 'flag',
-    explain: 'The amount and date are smudged and can\'t be read, yet the AI filled them in with high confidence. That is a guess, not a reading, so it can\'t be checked. A person needs to look at the original.' },
+    explain: 'The receipt is from Tokyo, so 2,500 is probably yen, not pesos, but neither the currency nor the rate is printed. You can\'t convert it, and the AI just added a peso sign. It can\'t be checked until someone confirms the currency.' },
 
-  { type: 'Travel form', title: 'Travel Order 26-118', conf: 'normal',
-    doc: [['Name', 'Bianca Reyes'], ['Filed', 'June 12, 2026'], ['No. of days', '3'], ['Amount', 'PHP 4,500.00'], ['Destination', 'Regional Office']],
-    ai: { officer: 'Bianca Reyes', dates: 'Jun 12, 2026', days: '30', amount: '₱4,500.00', purpose: 'Regional Office visit' },
-    answer: 'fix', wrongField: 'days', truth: '3',
-    explain: 'The form says 3 days, but the AI typed 30. The right number is on the form, so it has a mistake.' },
+  { type: 'Travel form', title: 'Travel Order 26-175', conf: 'normal',
+    situation: 'Use the officer\'s full name exactly as written on the form. Do not use nicknames.',
+    doc: [['Name', 'Ma. Theresa "Tess" Santos'], ['Trip', 'Oct 15–16, 2026'], ['Days', '2'], ['Amount', 'PHP 3,000.00'], ['Purpose', 'Stakeholder meeting']],
+    ai: { officer: 'Tess Santos', dates: 'Oct 15–16, 2026', days: '2', amount: '₱3,000.00', purpose: 'Stakeholder meeting' },
+    answer: 'fix', wrongField: 'officer', truth: 'Ma. Theresa Santos',
+    explain: '"Tess" is a nickname in quotes. The rule asks for the full name from the form, Ma. Theresa Santos, so it has a mistake.' },
 
-  { type: 'Email request', title: 'Pls process reimbursement', conf: 'high',
-    doc: [['Officer', 'Andrea Salcedo'], ['Trip', 'Conference'], ['Amount', 'PHP 4,500.00'], ['Note', 'Dates and number of days not stated']],
-    ai: { officer: 'Andrea Salcedo', dates: 'Jul 1–5, 2026', days: '5', amount: '₱4,500.00', purpose: 'Conference' },
+  { type: 'Handwritten voucher', title: 'Cash Voucher #3302', conf: 'low',
+    situation: 'In this office, ".-" after an amount means "no centavos" (for example, 500.- means 500.00).',
+    doc: [['Payee', 'Elena Cruz'], ['Date', 'Oct 19, 2026'], ['Days', '2'], ['Amount', 'PHP 3,000.-'], ['Purpose', 'Meals and fare']],
+    ai: { officer: 'Elena Cruz', dates: 'Oct 19, 2026', days: '2', amount: '₱3,000.00', purpose: 'Meals and fare' },
+    answer: 'approve',
+    explain: 'The ".-" looks odd and the AI showed Low confidence, but 3,000.- means 3,000.00, exactly what the AI typed. Every detail matches, so it looks right.' },
+
+  { type: 'Travel form', title: 'Travel Order 26-180', conf: 'high',
+    situation: 'If a form contradicts itself, do not choose one value. Return it to the officer to confirm.',
+    doc: [['Name', 'Andrea Salcedo'], ['Depart', 'Oct 21, 2026'], ['Return', 'Oct 22, 2026'], ['No. of days', '3'], ['Amount', 'PHP 4,500.00'], ['Purpose', 'Training']],
+    ai: { officer: 'Andrea Salcedo', dates: 'Oct 21–22, 2026', days: '3', amount: '₱4,500.00', purpose: 'Training' },
     answer: 'flag',
-    explain: 'The email never gives the dates or number of days, but the AI made them up. The right values aren\'t in the document at all, so it can\'t be checked. Someone needs to ask for the missing details.' },
+    explain: 'Oct 21 to 22 is 2 days, but the form says 3 days and the amount fits 3 days. The form disagrees with itself, so you can\'t tell which is right. Per the rule, it can\'t be checked until the officer confirms.' },
+
+  { type: 'Two receipts, one trip', title: 'Receipts #5510 and #5511', conf: 'normal',
+    situation: 'Both receipts are for the same trip. Enter one Amount: the total of both receipts.',
+    doc: [['Payee', 'Daniel Tan'], ['Receipt #5510', 'Oct 26, 2026 · PHP 1,500.00'], ['Receipt #5511', 'Oct 27, 2026 · PHP 1,500.00'], ['Days', '2'], ['Purpose', 'Field visit']],
+    ai: { officer: 'Daniel Tan', dates: 'Oct 26–27, 2026', days: '2', amount: '₱1,500.00', purpose: 'Field visit' },
+    answer: 'fix', wrongField: 'amount', truth: '₱3,000.00',
+    explain: 'The AI only used one receipt. The rule asks for the total of both: ₱1,500 + ₱1,500 = ₱3,000.00.' }
 ];
 // Access codes recorded as finishing Game 1 (from the Game 1 score sheet). Firebase is also checked.
 const L1_DONE = new Set(["DX-2TMES2", "DX-4SEWQF", "DX-6SBSJC", "DX-7Q88Z5", "DX-7Q9T35", "DX-8GYTGN", "DX-8YMTRR", "DX-9C4G34", "DX-9ZA7MW", "DX-DE3SDE", "DX-F7HC4W", "DX-FESJD6", "DX-G888NA", "DX-GB8Z9G", "DX-H3GD4B", "DX-HKZNZN", "DX-K9D2Z6", "DX-KH89Y6", "DX-M6J6A9", "DX-MBVG28", "DX-MQ46KF", "DX-PSXGH8", "DX-PWH7JJ", "DX-PZCRNV", "DX-Q24HAN", "DX-QDPECR", "DX-R56HWG", "DX-RKBBGB", "DX-U4RK42", "DX-U7PVSJ", "DX-VS5MVT", "DX-VUEBDJ", "DX-WH7RJU", "DX-WZDMM6", "DX-XHQRY4", "DX-XJBB2U", "DX-XU6AMA", "DX-YQTCAD", "DX-Z6D262", "DX-ZXY6Q8"]);
@@ -1076,7 +1106,10 @@ function renderQuestion() {
     src += `<div class="kv"><span class="k">${escapeHtml(k)}</span><span class="v ${smudged ? 'smudge' : ''}">${escapeHtml(v)}</span></div>`;
   });
   document.getElementById('doc-src').innerHTML = src;
-  const confTxt = d.conf === 'high' ? 'Confidence: High' : 'Confidence: Normal';
+  const sit = document.getElementById('situation');
+  if (d.situation) { sit.innerHTML = `<b>📋 Situation</b>${escapeHtml(d.situation)}`; sit.classList.remove('hidden'); }
+  else { sit.classList.add('hidden'); sit.innerHTML = ''; }
+  const confTxt = d.conf === 'high' ? 'Confidence: High' : d.conf === 'low' ? 'Confidence: Low' : 'Confidence: Normal';
   let ai = `<div class="doc-head"><span class="doc-label">🤖 What the AI typed</span><span class="conf ${d.conf}">${confTxt}</span></div>`;
   FIELDS.forEach(([key, lbl]) => {
     ai += `<div class="kv" data-field="${key}"><span class="k">${lbl}</span><span class="v">${escapeHtml(d.ai[key] || '—')}</span></div>`;
